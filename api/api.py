@@ -29,14 +29,16 @@ def compute(ID:int):
             with open(join(dirname(__file__),"std.pk"),"rb") as f_std:
                 standardize = load(f_std)
                 std = standardize.transform(user)
-                del standardize
-                gc.collect()
+            del standardize
+            del f_std
+            gc.collect()
 
             with open(join(dirname(__file__),"model.pk"),"rb") as f_model:
                 model = load(f_model)
                 extract = model.predict_proba(std)
-                del model
-                gc.collect()
+            del model
+            del f_model
+            gc.collect()
                 
             return list(extract[0])
 
