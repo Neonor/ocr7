@@ -7,7 +7,11 @@ from subprocess import Popen,PIPE
 from json import loads
 
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
+
 app = FastAPI()
+
+app.mount("/static", StaticFiles(directory="/mnt/neonor.org"), name="static")
 
 @app.get('/') 
 async def home():
@@ -23,7 +27,17 @@ async def compute_lite(ID:int):
     """
     a,_ = Popen(["python","api/compute.py",str(ID)],stdout=PIPE).communicate()
     return loads(a.decode())
-    
+
+
+@app.get("/explainer/")
+async def explainer_lite(ID:int):
+    """
+    Fonction d'explanation du model pour un client
+    fonction "lite" : executer en subprocess pour économiser de la memoire sur le serveur aws (1Go RAM)
+    """
+    a,_ = Popen(["python","api/explainer.py",str(ID)],stdout=PIPE).communicate()
+    return loads(a.decode())
+
 
 # @app.get('/compute/')
 async def compute(ID:int):
