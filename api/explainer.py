@@ -3,8 +3,10 @@ import pickle as pk
 import dill
 import pandas as pd
 import gc
-from sys import argv,exit
-
+from json import dumps
+from sys import argv,exit#,stdin,stdout
+# stdin.reconfigure(encoding='utf-8')
+# stdout.reconfigure(encoding='utf-8')
 ID = int(argv[-1])
 
 for data in pd.read_csv(join(dirname(__file__),"computed.xz"),index_col=0,compression="xz",chunksize=100000):
@@ -33,6 +35,6 @@ for data in pd.read_csv(join(dirname(__file__),"computed.xz"),index_col=0,compre
             model.predict_proba,
             num_features=20
         )
-        print(explanation.as_html(),end="")
+        print(dumps([list(explanation.predict_proba),explanation.as_list()]),end="")
         exit()
 

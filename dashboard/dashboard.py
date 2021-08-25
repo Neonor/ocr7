@@ -14,6 +14,8 @@ import json
 
 from os.path import join,dirname
 
+from ocr7_cli import Ocr7Api
+
 
 pas_age = 20
 pas_famille = 5
@@ -21,14 +23,14 @@ pas_famille = 5
 class Presentation(object):
     def __init__(self,main):
         self.main = main
-        self.graph = figure(width=400,height=400,
+        self.graph = figure(#width=600,height=600,
                             x_range=(-420, 420),
                             y_range=(-420, 420))
         self.make_graph()
 
     def render(self):
         heading = mb.Div(text="""Représentation clientèle""",height=80, sizing_mode="stretch_width")
-        return mb.Panel(child=column(heading,self.graph,self.main.footing, sizing_mode="stretch_width"), title="Représentation")
+        return mb.Panel(child=column(heading,row(self.graph),self.main.footing, sizing_mode="stretch_width"), title="Représentation")
     
     def update(self,attr, old, new):
         self.make_graph()
@@ -92,17 +94,64 @@ class interpretabilite(object):
         self.main = main
 
     def render(self):
-        self.out = mb.Div(text="")
+        self.callback_id = None
+        
+        self.data_bad_good = mb.ColumnDataSource(data={"right":[0,0],"y":[0,0],"colors":["darkblue","crimson"]})
+        
+        bad_good = figure(height=50,x_range=(-1, 1),x_axis_type=None, y_axis_type=None, toolbar_location=None)
+        bad_good.hbar(right="right", y="y", height=0.9, color="colors",source=self.data_bad_good)
+
+        bad_good.ygrid.grid_line_color = None
+        bad_good.xgrid.grid_line_color = None
+        bad_good.axis.minor_tick_line_color = None
+        bad_good.outline_line_color = None
+        
+        self.data_inter = mb.ColumnDataSource(data={"right":[],"y":[],"colors":[]})
+
+        self.inter = figure(height=300,y_range=mb.FactorRange(),x_axis_type=None, toolbar_location=None)
+        self.inter.hbar(right="right", y="y", height=0.9, color="colors",source=self.data_inter)
+
+        self.inter.axis.minor_tick_line_color = None
+        self.inter.outline_line_color = None
+        
+        self.pull()
+        
+
+        self.out = mb.Div(text=str(self.main.api.explainer()))
         button = mb.Button(label="Calcul", button_type="success")
+        button.on_click(self.get_explainer)
         
         heading = mb.Div(text="""interprétabilité""",height=80, sizing_mode="stretch_width")
-        return mb.Panel(child=column(heading,row([column([button]),self.out]),self.main.footing, sizing_mode="stretch_width"), title="interpretabilité")
+        return mb.Panel(child=column(heading,row([column([button]),column([bad_good,self.inter])]),self.main.footing, sizing_mode="stretch_width"), title="interpretabilité")
+    
+
+    def pull(self):
+        data = self.main.api.explainer()
+        if data:
+            self.data_bad_good.data = {"right":[-data[0][0],data[0][1]],"y":[0,0],"colors":["crimson","darkblue"]}
+            head,values = list(zip(*data[1][::-1]))
+            values = [-val for val in values]
+            colors = [["darkblue","crimson"][val<0] for val in values]
+            y = max([abs(val) for val in values])
+            self.data_inter.data = {"right":values,"y":head,"colors":colors}
+            self.inter.x_range = mb.Range1d(-y,y)
+            self.inter.y_range = mb.FactorRange(*head)
+            if self.callback_id:
+                self.main.doc.remove_periodic_callback(self.callback_id)
+                self.callback_id = None
+    
+    def get_explainer(self):
+        self.main.api.explainer_launch(100002)
+        self.callback_id = self.main.doc.add_periodic_callback(self.pull, 3000)
     
     def update(self,attr, old, new):
         pass
     
 class Dashboard(object):
     def __init__(self,doc):
+        self.doc = doc
+        self.api = Ocr7Api(debug=False)
+        
         sex = mb.MultiSelect(title="Sex :", value=[], options=[("H","Homme"),("F","Femme"),('XNA',"XENO")])
         study = mb.MultiSelect(title="Etude :",value=[],options=[('Lower secondary',"Primaire"),('Secondary / secondary special',"Secondaire"), ('Higher education',"Universitaire"),('Incomplete higher',"Universitaire incomplet"), ('Academic degree',"Post Universitaire")])
         family_status = mb.MultiSelect(title="Sex :", value=[], options=[('Single / not married',"Célibataire"), ('Married',"Marié"), ('Civil marriage',"Mariage civil"), ('Widow',"Veuf"), ('Separated','Séparé'), ('Unknown',"Inconnu")])
@@ -120,13 +169,14 @@ class Dashboard(object):
             f"AGE_{pas_age}":age,
             f"AGE_EMPLOYED_{pas_age}":age_travail
         }
-        
-#         self.ctrls = [sex,study,family_status,family,age,age_travail,ids]
-       
+               
         self.tabs = [Presentation(self),interpretabilite(self)]
         
         for enter in self.ctrls.values():
-            enter.on_change("value",self.update)
+            if isinstance(enter,mb.RangeSlider):
+                enter.on_change("value_throttled",self.update)
+            else:
+                enter.on_change("value",self.update)
         
         heading = mb.Div(text="""<h2 title="by rloriot">OCR Data Scientist V2, Projet 7 : Implémentez un modèle de scoring</h2>""", sizing_mode="stretch_width")
         self.footing = mb.Div(text="""<i style="right=0">by rloriot</i>""", sizing_mode="stretch_width")
