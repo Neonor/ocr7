@@ -9,9 +9,6 @@ from bokeh.layouts import column, row, layout
 from bokeh.palettes import turbo,Category20,RdBu
 from bokeh.transform import cumsum
 
-
-import json
-
 from os.path import join,dirname
 
 from ocr7_cli import Ocr7Api
@@ -38,7 +35,7 @@ class Presentation(object):
     def make_graph(self):
         self.graph.renderers.clear()
         cols = ["P1_10","CODE_GENDER",f"CNT_FAM_MEMBERS","NAME_EDUCATION_TYPE","NAME_FAMILY_STATUS",f"AGE_{pas_age}",f"AGE_EMPLOYED_{pas_age}"]
-        g_data = pd.read_csv("dashboard/cible.csv").set_index(cols)
+        g_data = pd.read_csv(join(dirname(__file__),"cible.csv")).set_index(cols)
         
         select = {}
         for name,ctrl in self.main.ctrls.items():

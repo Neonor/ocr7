@@ -12,7 +12,10 @@ from fastapi.staticfiles import StaticFiles
 app = FastAPI()
 temp = {}
 
-app.mount("/static", StaticFiles(directory="/mnt/neonor.org"), name="static")
+try:
+    app.mount("/static", StaticFiles(directory="/mnt/neonor.org"), name="static")
+except:
+    pass
 
 @app.get('/') 
 async def home():
