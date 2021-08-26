@@ -23,7 +23,6 @@ async def home():
     return {"projet":'OCR7'}
 
 
-
 """
 Block de calcul model low memory asynchrone
 """
@@ -35,7 +34,7 @@ def task_compute(idx):
 @app.post("/compute/")
 async def compute_lite(ID:int,background_tasks: BackgroundTasks):
     """
-    Fonction de calcul du model pour un client
+    Fonction de calcul du model pour un client (ID exemple : 100002)
     fonction "lite" : executer en subprocess pour économiser de la memoire sur le serveur aws (1Go RAM) car une fois executé,
     les librairies chargées indépendament du modèle prennent 33% de la mémoire et si les models sont gardés chargés, l'occupation monte a 64%
     """
@@ -47,9 +46,7 @@ async def compute_lite(ID:int,background_tasks: BackgroundTasks):
 @app.get("/compute/")
 async def compute_result():
     """
-    Fonction de calcul du model pour un client
-    fonction "lite" : executer en subprocess pour économiser de la memoire sur le serveur aws (1Go RAM) car une fois executé,
-    les librairies chargées indépendament du modèle prennent 33% de la mémoire et si les models sont gardés chargés, l'occupation monte a 64%
+    Affiche le résusltat du dernier calcul de score
     """
     return temp.get("compute",[])
 
@@ -66,7 +63,7 @@ def task_explainer(idx):
 @app.post("/explainer/")
 async def explainer_lite(ID:int,background_tasks: BackgroundTasks):
     """
-    Fonction d'explanation du model pour un client
+    Fonction d'explanation du model pour un client (ID exemple : 100002)
     fonction "lite" : executer en subprocess pour économiser de la memoire sur le serveur aws (1Go RAM)
     """
     if "explainer" in temp:
@@ -77,8 +74,7 @@ async def explainer_lite(ID:int,background_tasks: BackgroundTasks):
 @app.get("/explainer/")
 async def compute_result():
     """
-    Fonction d'explanation du model pour un client
-    fonction "lite" : executer en subprocess pour économiser de la memoire sur le serveur aws (1Go RAM)
+    Affiche le résusltat du dernier calcul d'interprétation
     """
     return temp.get("explainer",[])
 

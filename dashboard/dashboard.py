@@ -114,7 +114,6 @@ class interpretabilite(object):
         self.pull()
         
 
-        self.out = mb.Div(text=str(self.main.api.explainer()))
         button = mb.Button(label="Calcul", button_type="success")
         button.on_click(self.get_explainer)
         
@@ -125,19 +124,23 @@ class interpretabilite(object):
     def pull(self):
         data = self.main.api.explainer()
         if data:
+            data = self.main.api.explainer()
             self.data_bad_good.data = {"right":[-data[0][0],data[0][1]],"y":[0,0],"colors":["crimson","darkblue"]}
             head,values = list(zip(*data[1][::-1]))
             values = [-val for val in values]
             colors = [["darkblue","crimson"][val<0] for val in values]
             y = max([abs(val) for val in values])
-            self.data_inter.data = {"right":values,"y":head,"colors":colors}
             self.inter.x_range = mb.Range1d(-y,y)
             self.inter.y_range = mb.FactorRange(*head)
+            self.data_inter.data = {"right":values,"y":head,"colors":colors}
             if self.callback_id:
                 self.main.doc.remove_periodic_callback(self.callback_id)
                 self.callback_id = None
     
     def get_explainer(self):
+        self.data_bad_good.data = {"right":[],"y":[],"colors":[]}
+        self.inter.y_range = mb.FactorRange("")
+        self.data_inter.data = {"right":[0],"y":[""],"colors":["#000000"]}
         self.main.api.explainer_launch(100002)
         self.callback_id = self.main.doc.add_periodic_callback(self.pull, 3000)
     
