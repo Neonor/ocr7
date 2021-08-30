@@ -38,8 +38,14 @@ En partant des données de base, on les complète à partir des autres fichier e
 * la moyenne et les cummules des solds en fin de mois
 * les retards de payment
 
+
+### Fonction de cout
+La fonction de cout a un objectif simple : minimiser les mauvais payeurs quite à en perdre quelques bons.
+
+
 ### Le model d'analyse
 Le modèle utilisé est [Lightgbm](https://lightgbm.readthedocs.io/en/latest/index.html) (recherche des hyperparametres via [Optuna](https://optuna.org/))
+
 
 ### Utilisation de l'API
 * /compute/
@@ -55,12 +61,19 @@ Le modèle utilisé est [Lightgbm](https://lightgbm.readthedocs.io/en/latest/ind
 fichier de configuration : config.json
 ```json
 {
-    "host":"XXX.XXX.XXX.XXX", -> ip local server
-    "port_api":8080, -> port api
-    "port_bokeh":5000, -> port bokeh
-    "dns":"exemple.org" -> DNS, optionnel
+    "host":"XXX.XXX.XXX.XXX",
+    "port_api":8080, 
+    "port_bokeh":5000, 
+    "dns":"exemple.org"
 }
 ```
+* host -> ip local server
+* port_api -> port api
+* port_bokeh -> port bokeh
+* dns -> DNS (optionnel)
+
+### Utilisation du serveur
+
 Démarrer l'api
 ```sh
 python api.py

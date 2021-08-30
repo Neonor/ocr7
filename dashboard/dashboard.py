@@ -20,10 +20,48 @@ pas_famille = 5
 class Presentation(object):
     def __init__(self,main):
         self.main = main
+
+        
+        self.data = {
+            "CODE_GENDER":mb.ColumnDataSource(data=pd.DataFrame(columns=["color","alpha","a_stop","a_start","r_stop","r_start"])),
+            f"CNT_FAM_MEMBERS":mb.ColumnDataSource(data=pd.DataFrame(columns=["color","alpha","a_stop","a_start","r_stop","r_start"])),
+            "NAME_EDUCATION_TYPE":mb.ColumnDataSource(data=pd.DataFrame(columns=["color","alpha","a_stop","a_start","r_stop","r_start"])),
+            "NAME_FAMILY_STATUS":mb.ColumnDataSource(data=pd.DataFrame(columns=["color","alpha","a_stop","a_start","r_stop","r_start"])),
+            f"AGE_{pas_age}":mb.ColumnDataSource(data=pd.DataFrame(columns=["color","alpha","a_stop","a_start","r_stop","r_start"])),
+            f"AGE_EMPLOYED_{pas_age}":mb.ColumnDataSource(data=pd.DataFrame(columns=["color","alpha","a_stop","a_start","r_stop","r_start"])),
+        }
+        self.make_graph()
+
         self.graph = figure(#width=600,height=600,
                             x_range=(-420, 420),
                             y_range=(-420, 420))
-        self.make_graph()
+        
+        t = zip(["#000000"]*(len(self.data)),
+        [0.2]*(len(self.data)),
+        [0]*(len(self.data)),
+        [2*np.pi]*(len(self.data)),
+        [idx*41+70 for idx in range(len(self.data))],
+        [idx*40+105 for idx in range(len(self.data))])
+
+        self.graph.annular_wedge(
+                0, 0,"r_start","r_stop",
+                start_angle="a_start",end_angle="a_stop",
+                source=pd.DataFrame(t,columns=["color","alpha","a_stop","a_start","r_stop","r_start"]),
+                color="color",
+                alpha="alpha",
+            )
+        
+        for data in self.data.values():
+            self.graph.annular_wedge(
+                0, 0,"r_start","r_stop",
+                start_angle="a_start",end_angle="a_stop",
+                source=data,
+                color="color",
+                alpha="alpha",
+            )
+        self.graph.axis.axis_label=None
+        self.graph.axis.visible=False
+        self.graph.grid.grid_line_color = None
 
     def render(self):
         heading = mb.Div(text="""Représentation clientèle""",height=80, sizing_mode="stretch_width")
@@ -32,7 +70,7 @@ class Presentation(object):
     def update(self,attr, old, new):
         self.make_graph()
     
-    def make_graph(self):
+    def make_graph0(self):
         self.graph.renderers.clear()
         cols = ["P1_10","CODE_GENDER",f"CNT_FAM_MEMBERS","NAME_EDUCATION_TYPE","NAME_FAMILY_STATUS",f"AGE_{pas_age}",f"AGE_EMPLOYED_{pas_age}"]
         g_data = pd.read_csv(join(dirname(__file__),"cible.csv")).set_index(cols)
@@ -85,6 +123,49 @@ class Presentation(object):
         self.graph.axis.axis_label=None
         self.graph.axis.visible=False
         self.graph.grid.grid_line_color = None
+        
+    def make_graph(self):
+        cols = ["P1_10","CODE_GENDER",f"CNT_FAM_MEMBERS","NAME_EDUCATION_TYPE","NAME_FAMILY_STATUS",f"AGE_{pas_age}",f"AGE_EMPLOYED_{pas_age}"]
+        g_data = pd.read_csv(join(dirname(__file__),"cible.csv")).set_index(cols)
+        
+        select = {}
+        for name,ctrl in self.main.ctrls.items():
+            if isinstance(ctrl.value,tuple):
+                select[name] = list(range(*ctrl.value))
+            elif isinstance(ctrl.value,list):
+                if ctrl.value:
+                    select[name] = list(ctrl.value)
+        
+        alpha = np.full(len(g_data),True)
+        for col in cols:
+        #     print(g_data.index.get_level_values(level=cols.index(col))==select[col])
+            if col in select:
+                if not isinstance(select[col],list):
+                    select[col] = [select[col]]
+                alpha = alpha & (g_data.index.get_level_values(level=cols.index(col)).isin(select[col]))
+            g_data[f"a_{col}"] = alpha.astype(float)#*0.8+0.2
+
+        passed_cols = []
+        for idx,col in enumerate(cols[1:]):
+            passed_cols.append(col)
+
+            temp = g_data[["counter",f"c_{col}",f"a_{col}"]].reset_index(drop=True).rename(columns={f"c_{col}":"color",f"a_{col}":"alpha"})
+            temp.index = np.concatenate(g_data.index.values).reshape((len(g_data),-1))[:,[cols.index(c) for c in passed_cols]]
+            temp["r_start"] = [idx*41+70]*len(temp)
+            temp["r_stop"] = [idx*40+105]*len(temp)
+
+            temp["a_stop"] = temp.counter.cumsum()
+            temp["a_start"] = temp.a_stop.shift(1).fillna(0)
+            temp["a_start"] = temp["a_start"]*2.035*np.pi/temp.counter.sum()
+            temp["a_stop"] = temp["a_stop"]*2.035*np.pi/temp.counter.sum()
+
+            temp = temp[temp["alpha"]==1]
+        #     temp = temp.groupby(level=0).agg({"angle":"sum","color":"first","alpha":"first"})
+            temp = temp.reset_index(drop=True)
+
+            temp.pop("counter")
+            self.data[col].data = temp
+
     
 class interpretabilite(object):
     def __init__(self,main):
@@ -152,14 +233,14 @@ class Dashboard(object):
         self.doc = doc
         self.api = Ocr7Api(debug=False)
         
-        sex = mb.MultiSelect(title="Sex :", value=[], options=[("H","Homme"),("F","Femme"),('XNA',"XENO")])
-        study = mb.MultiSelect(title="Etude :",value=[],options=[('Lower secondary',"Primaire"),('Secondary / secondary special',"Secondaire"), ('Higher education',"Universitaire"),('Incomplete higher',"Universitaire incomplet"), ('Academic degree',"Post Universitaire")])
-        family_status = mb.MultiSelect(title="Sex :", value=[], options=[('Single / not married',"Célibataire"), ('Married',"Marié"), ('Civil marriage',"Mariage civil"), ('Widow',"Veuf"), ('Separated','Séparé'), ('Unknown',"Inconnu")])
-        family = mb.RangeSlider(start=1, end=21, value=(1,21), step=1, title="Membres de la famille :")
-        age = mb.RangeSlider(start=15, end=90, value=(15,90), step=5, title="Age :")
-        age_travail = mb.RangeSlider(start=0, end=50, value=(0,50), step=5, title="Temp de travail :")
+        sex = mb.MultiSelect(title="Sex", value=[], options=[("M","Homme"),("F","Femme"),('XNA',"XENO")])
+        study = mb.MultiSelect(title="Etude",value=[],options=[('Lower secondary',"Primaire"),('Secondary / secondary special',"Secondaire"), ('Higher education',"Universitaire"),('Incomplete higher',"Universitaire incomplet"), ('Academic degree',"Post Universitaire")])
+        family_status = mb.MultiSelect(title="Etat civil", value=[], options=[('Single / not married',"Célibataire"), ('Married',"Marié"), ('Civil marriage',"Mariage civil"), ('Widow',"Veuf"), ('Separated','Séparé'), ('Unknown',"Inconnu")])
+        family = mb.RangeSlider(start=1, end=21, value=(1,21), step=1, title="Membres de la famille")
+        age = mb.RangeSlider(start=15, end=90, value=(15,90), step=5, title="Age")
+        age_travail = mb.RangeSlider(start=0, end=50, value=(0,50), step=5, title="Temps travaillé")
         
-        ids = mb.Select(title="Ids:", value="", options=[""],disabled=True)
+        ids = mb.Select(title="Id Client:", value="", options=[""],disabled=True)
         
         self.ctrls = {
             "CODE_GENDER":sex,
@@ -167,7 +248,8 @@ class Dashboard(object):
             "NAME_EDUCATION_TYPE":study,
             "NAME_FAMILY_STATUS":family_status,
             f"AGE_{pas_age}":age,
-            f"AGE_EMPLOYED_{pas_age}":age_travail
+            f"AGE_EMPLOYED_{pas_age}":age_travail,
+            "ids":ids
         }
                
         self.tabs = [Presentation(self),interpretabilite(self)]
