@@ -5,7 +5,7 @@ from os.path import join,dirname
 
 import bokeh.models as mb
 from bokeh.plotting import figure,output_notebook,show
-from bokeh.layouts import column, row, layout
+from bokeh.layouts import column, row, layout, gridplot
 from bokeh.palettes import turbo,Category20,RdBu
 from bokeh.transform import cumsum
 
@@ -20,7 +20,21 @@ pas_famille = 5
 class Presentation(object):
     def __init__(self,main):
         self.main = main
+        colors = turbo(256)
+        self.cursors = [mb.ColumnDataSource(data=pd.DataFrame(zip([0]*127,np.linspace(0,1,128)[:-1],np.linspace(0,1,128)[1:],[colors[i] for i in range(105,232)]),columns=["y","left","right","colors"])),
+                        mb.ColumnDataSource(data=pd.DataFrame(zip([0]*127,np.linspace(0,1,128)[:-1],np.linspace(0,1,128)[1:],[colors[i] for i in range(105,232)]),columns=["y","left","right","colors"])),
+                        mb.ColumnDataSource(data=pd.DataFrame(zip([],[],[],[]),columns=["x","y","marker","colors"]))]
 
+        self.g_cursor = figure(height=30,width=1000,x_range=(0,1), toolbar_location=None)
+        self.g_cursor.hbar(y="y",left="left",right="right",color="colors",source=self.cursors[0],line_alpha=0,fill_alpha=0.2)
+        self.g_cursor.hbar(y="y",left="left",right="right",color="colors",source=self.cursors[1])
+
+        self.g_cursor.scatter("x", "y", marker="marker", size=11, color="colors",source=self.cursors[2])
+
+        self.g_cursor.axis.axis_label=None
+        self.g_cursor.axis.visible=False
+        self.g_cursor.grid.grid_line_color = None
+        
         
         self.data = {
             "CODE_GENDER":mb.ColumnDataSource(data=pd.DataFrame(columns=["color","alpha","a_stop","a_start","r_stop","r_start"])),
@@ -30,7 +44,7 @@ class Presentation(object):
             f"AGE_{pas_age}":mb.ColumnDataSource(data=pd.DataFrame(columns=["color","alpha","a_stop","a_start","r_stop","r_start"])),
             f"AGE_EMPLOYED_{pas_age}":mb.ColumnDataSource(data=pd.DataFrame(columns=["color","alpha","a_stop","a_start","r_stop","r_start"])),
         }
-        self.make_graph()
+        
 
         self.graph = figure(#width=600,height=600,
                             x_range=(-420, 420),
@@ -63,66 +77,36 @@ class Presentation(object):
         self.graph.axis.visible=False
         self.graph.grid.grid_line_color = None
 
+        self.datas = [mb.ColumnDataSource(data=pd.DataFrame(columns=["good","bad"])) for i in range(0,6)]
+        cols = ["P1_10","CODE_GENDER",f"CNT_FAM_MEMBERS","NAME_EDUCATION_TYPE","NAME_FAMILY_STATUS",f"AGE_{pas_age}",f"AGE_EMPLOYED_{pas_age}"]
+        g_data = pd.read_csv(join(dirname(__file__),"cible.csv")).set_index(cols)
+        self.graphs = []
+        
+        on_off = g_data.index.get_level_values(level=0).astype(bool).values.astype(bool)
+        for i in range(0,6):
+            gd = pd.DataFrame(index=g_data.groupby(level=i+1).sum().index.values)
+            gd["good"] = g_data[~on_off].groupby(level=i+1).sum().counter
+            gd["bad"] = -g_data[on_off].groupby(level=i+1).sum().counter
+            gd["good"] = gd["good"]*100/(gd["good"])
+            gd["bad"] = gd["bad"]*100/(-gd["bad"])
+            gd.index = gd.index.astype(str)
+            graph = figure(x_range=gd.index.values,height=200,width=500,title=f"{g_data.groupby(level=i+1).sum().index.name}")
+            graph.vbar(x="index",top="good",width=0.9,source=gd,line_alpha=0.2,fill_alpha=0.2)
+            graph.vbar(x="index",top="bad",width=0.9,source=gd,color="crimson",line_alpha=0.2,fill_alpha=0.2)
+            
+            graph.vbar(x="index",top="good",width=0.9,source=self.datas[i])
+            graph.vbar(x="index",top="bad",width=0.9,source=self.datas[i],color="crimson")
+            self.graphs.append(graph)
+
+        self.make_graph()
+
+
     def render(self):
         heading = mb.Div(text="""Représentation clientèle""",height=80, sizing_mode="stretch_width")
-        return mb.Panel(child=column(heading,row(self.graph),self.main.footing, sizing_mode="stretch_width"), title="Représentation")
+        return mb.Panel(child=column(heading,row(self.graph,column(self.g_cursor,gridplot(self.graphs,ncols=2))),self.main.footing, sizing_mode="stretch_width"), title="Représentation")
     
     def update(self,attr, old, new):
         self.make_graph()
-    
-    def make_graph0(self):
-        self.graph.renderers.clear()
-        cols = ["P1_10","CODE_GENDER",f"CNT_FAM_MEMBERS","NAME_EDUCATION_TYPE","NAME_FAMILY_STATUS",f"AGE_{pas_age}",f"AGE_EMPLOYED_{pas_age}"]
-        g_data = pd.read_csv(join(dirname(__file__),"cible.csv")).set_index(cols)
-        
-        select = {}
-        for name,ctrl in self.main.ctrls.items():
-            if isinstance(ctrl.value,tuple):
-                select[name] = list(range(*ctrl.value))
-            elif isinstance(ctrl.value,list):
-                if ctrl.value:
-                    select[name] = list(ctrl.value)
-        
-        alpha = np.full(len(g_data),True)
-        for col in cols:
-        #     print(g_data.index.get_level_values(level=cols.index(col))==select[col])
-            if col in select:
-                if not isinstance(select[col],list):
-                    select[col] = [select[col]]
-                alpha = alpha & (g_data.index.get_level_values(level=cols.index(col)).isin(select[col]))
-            g_data[f"a_{col}"] = alpha.astype(float)#*0.8+0.2
-
-
-        g_data["alpha"] = alpha.astype(float)#*0.8+0.2
-        g_data[f"c_{cols[0]}"] = [["#55DD55","#DD5555"][val] for val in g_data.index.get_level_values(level=0)]
-
-        inner_radius = 90
-        outer_radius = inner_radius+20
-
-        colors = turbo(256)
-        colors_pas = np.arange(0,2*np.pi,2*np.pi/256)
-        for idx,col in enumerate(cols[1:]):
-            self.graph.annular_wedge(
-                0, 0,
-                idx*41+70, idx*40+105,#outer_radius,
-                start_angle=colors_pas, end_angle=colors_pas+2*np.pi/256,
-                color="#000000",#turbo(256),
-                alpha=0.2,
-                line_alpha=0
-            )
-        for idx,col in enumerate(cols[1:]+[cols[0]]):
-            self.graph.annular_wedge(
-                0, 0,
-                idx*41+70, idx*40+105,#outer_radius,
-                start_angle=cumsum('angle', include_zero=True), end_angle=cumsum('angle'),
-                source=g_data,#.groupby(level=cols.index(col)).agg({"angle":"sum",f"c_{col}":"first",f"a_{col}":"first"}),
-                color=f"c_{col}",
-                alpha=f"a_{col}",
-            )
-
-        self.graph.axis.axis_label=None
-        self.graph.axis.visible=False
-        self.graph.grid.grid_line_color = None
         
     def make_graph(self):
         cols = ["P1_10","CODE_GENDER",f"CNT_FAM_MEMBERS","NAME_EDUCATION_TYPE","NAME_FAMILY_STATUS",f"AGE_{pas_age}",f"AGE_EMPLOYED_{pas_age}"]
@@ -131,7 +115,7 @@ class Presentation(object):
         select = {}
         for name,ctrl in self.main.ctrls.items():
             if isinstance(ctrl.value,tuple):
-                select[name] = list(range(*ctrl.value))
+                select[name] = list(range(*[int(i) for i in ctrl.value]))
             elif isinstance(ctrl.value,list):
                 if ctrl.value:
                     select[name] = list(ctrl.value)
@@ -145,6 +129,8 @@ class Presentation(object):
                 alpha = alpha & (g_data.index.get_level_values(level=cols.index(col)).isin(select[col]))
             g_data[f"a_{col}"] = alpha.astype(float)#*0.8+0.2
 
+#         print(1-np.mean(g_data[g_data[f"a_{col}"]==1].index.get_level_values(level=cols.index("P1_10"))))
+        
         passed_cols = []
         for idx,col in enumerate(cols[1:]):
             passed_cols.append(col)
@@ -165,6 +151,56 @@ class Presentation(object):
 
             temp.pop("counter")
             self.data[col].data = temp
+        
+        
+        a = g_data[g_data[f"a_{col}"]==1]
+        on_off = a.index.get_level_values(level=0).astype(bool).values.astype(bool)
+        tt_on_off = g_data.index.get_level_values(level=0).astype(bool).values.astype(bool)
+        for i in range(1,7):
+            tt_g = g_data[~tt_on_off].groupby(level=i).sum().counter
+            tt_b = g_data[tt_on_off].groupby(level=i).sum().counter
+            gd = pd.DataFrame(index=a.groupby(level=i).sum().index.values)
+            gd["good"] = a[~on_off].groupby(level=i).sum().counter
+            gd["bad"] = -a[on_off].groupby(level=i).sum().counter
+            gd["good"] = gd["good"]*100/(tt_g)
+            gd["bad"] = gd["bad"]*100/(tt_b)
+            gd.index = gd.index.astype(str)
+            self.datas[i-1].data = gd
+        
+        
+        
+        t_app = pd.read_csv(join(dirname(__file__),"ids.csv"))#.set_index(cols[1:])
+        for name,ctrl in self.main.ctrls.items():
+            try:
+                if isinstance(ctrl.value,tuple):
+                    t_app = t_app[t_app[name].isin(list(range(*[int(i) for i in ctrl.value])))]
+                elif isinstance(ctrl.value,list):
+                    if ctrl.value:
+                        t_app = t_app[t_app[name].isin(ctrl.value)]
+            except:
+                pass
+
+        colors = turbo(256)
+        b = pd.DataFrame(zip([0]*127,np.linspace(0,1,128)[:-1],np.linspace(0,1,128)[1:],[colors[i] for i in range(105,232)]),columns=["y","left","right","colors"])
+        self.cursors[1].data = b[(b.left>t_app.P1.min())&(b.left<t_app.P1.max())]
+        
+        if len(t_app)<5000:
+            id_user = self.main.ctrls["ids"].value
+
+            self.main.ctrls["ids"].options=[""]+list(t_app["SK_ID_CURR"].astype(str))
+            self.main.ctrls["ids"].value = id_user
+            self.main.ctrls["ids"].disabled = False
+            if id_user:
+                self.cursors[2].data = pd.DataFrame(zip([t_app.P1.mean(),t_app[t_app["SK_ID_CURR"] == int(id_user)]["P1"].iloc[0]],[0.35,-0.35],["inverted_triangle","triangle"],["black","blue"]),columns=["x","y","marker","colors"])
+            else:
+                self.cursors[2].data = pd.DataFrame(zip([t_app.P1.mean()],[0.35],["inverted_triangle"],["black"]),columns=["x","y","marker","colors"])
+        else:
+            self.main.ctrls["ids"].disabled = True
+            self.main.ctrls["ids"].options=[]
+            self.main.ctrls["ids"].value = ""
+
+            self.cursors[2].data = pd.DataFrame(zip([t_app.P1.mean()],[0.35],["inverted_triangle"],["black"]),columns=["x","y","marker","colors"])
+
 
     
 class interpretabilite(object):
