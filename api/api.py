@@ -1,16 +1,20 @@
 from os.path import join,dirname
-from pickle import load
+import pickle as pk
 import pandas as pd
 import gc
 
 from subprocess import Popen,PIPE
-from json import loads
+from json import loads,load,dump
 
 from fastapi import FastAPI, BackgroundTasks
 from fastapi.staticfiles import StaticFiles
 
 app = FastAPI()
-temp = {}
+try:
+    with open("temp.json","r") as f_exp:
+        temp = load(f_exp)
+except:
+    temp = {"compute":{},"explainer":{}}
 
 try:
     app.mount("/static", StaticFiles(directory="/mnt/neonor.org"), name="static")
@@ -29,7 +33,9 @@ Block de calcul model low memory asynchrone
 
 def task_compute(idx):
     a,_ = Popen(["python","api/compute.py",idx],stdout=PIPE).communicate()
-    temp["compute"] = loads(a.decode())
+    temp["compute"][int(idx)] = loads(a.decode())
+    with open("temp.json","w") as f_exp:
+        dump(temp,f_exp)
 
 @app.post("/compute/")
 async def compute_lite(ID:int,background_tasks: BackgroundTasks):
@@ -38,17 +44,17 @@ async def compute_lite(ID:int,background_tasks: BackgroundTasks):
     fonction "lite" : executer en subprocess pour économiser de la memoire sur le serveur aws (1Go RAM) car une fois executé,
     les librairies chargées indépendament du modèle prennent 33% de la mémoire et si les models sont gardés chargés, l'occupation monte a 64%
     """
-    if "compute" in temp:
-        del temp["compute"]
-    background_tasks.add_task(task_compute,idx=str(ID))
+    if not ID in temp["compute"]:
+#         del temp["compute"][ID]
+        background_tasks.add_task(task_compute,idx=str(ID))
     return True
 
 @app.get("/compute/")
-async def compute_result():
+async def compute_result(ID:int):
     """
     Affiche le résusltat du dernier calcul de score
     """
-    return temp.get("compute",[])
+    return temp.get("compute",{}).get(ID,[])
 
 
 
@@ -57,8 +63,10 @@ Block de calcul explainer low memory asynchrone
 """
 
 def task_explainer(idx):
-    a,_ = Popen(["python","api/explainer.py",idx],stdout=PIPE).communicate()
-    temp["explainer"] = loads(a.decode())
+    a,_ = Popen(["python","api/explainer.py",str(idx)],stdout=PIPE).communicate()
+    temp["explainer"][idx] = loads(a.decode())
+    with open("temp.json","w") as f_exp:
+        dump(temp,f_exp)
 
 @app.post("/explainer/")
 async def explainer_lite(ID:int,background_tasks: BackgroundTasks):
@@ -66,17 +74,17 @@ async def explainer_lite(ID:int,background_tasks: BackgroundTasks):
     Fonction d'explanation du model pour un client (ID exemple : 100002)
     fonction "lite" : executer en subprocess pour économiser de la memoire sur le serveur aws (1Go RAM)
     """
-    if "explainer" in temp:
-        del temp["explainer"]
-    background_tasks.add_task(task_explainer,idx=str(ID))
+    if not ID in temp["explainer"]:
+#         del temp["explainer"][ID]
+        background_tasks.add_task(task_explainer,idx=ID)
     return True
 
 @app.get("/explainer/")
-async def compute_result():
+async def compute_result(ID:int):
     """
     Affiche le résusltat du dernier calcul d'interprétation
     """
-    return temp.get("explainer",[])
+    return temp.get("explainer",{}).get(ID,[])
 
 # @app.get('/compute/')
 # async def compute(ID:int):

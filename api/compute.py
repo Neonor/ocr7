@@ -6,8 +6,8 @@ from sys import argv,exit
 
 ID = int(argv[-1])
 
-for data in pd.read_csv(join(dirname(__file__),"computed.xz"),index_col=0,compression="xz",chunksize=100000):
-    user = data[data.SK_ID_CURR == ID].copy()
+for data in pd.read_csv(join(dirname(__file__),"pre_computed.xz"),index_col=0,compression="xz",chunksize=100000):
+    user = data[data.index == ID].copy()
     user.pop("TARGET")
     del data
     gc.collect()

@@ -69,7 +69,7 @@ class ApiRestCli(object):
         return Answer(url,code,data,fields,headers)
     
     def _get(self,path="",paras={},headers={}):
-        return self._request("GET", path,headers=headers)
+        return self._request("GET", path,paras,headers=headers)
 
     def _put(self,path="",paras={},fields={},headers={}):
         return self._request("PUT", path,headers=headers)

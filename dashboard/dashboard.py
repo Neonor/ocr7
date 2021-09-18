@@ -17,33 +17,50 @@ from ocr7_cli import Ocr7Api
 pas_age = 20
 pas_famille = 5
 
+TRAD = {
+    "CODE_GENDER":["Genre",{"M":"Homme","F":"Femme",'XNA':"XENO"},"Genre"],
+    "CNT_FAM_MEMBERS":["Membres de la famille",{},"Nb Famille"],
+    "NAME_EDUCATION_TYPE":["Etude",{'Lower secondary':"Primaire",'Secondary / secondary special':"Secondaire",
+                                    'Higher education':"Universitaire",'Incomplete higher':"Universitaire incomplet",
+                                    'Academic degree':"Post Universitaire"},"Etude"],
+    "NAME_FAMILY_STATUS":["Etat civil",{'Single / not married':"Célibataire",'Married':"Marié(e)",'Civil marriage':"Mariage civil",
+                                        'Widow':"Veuf",'Separated':'Séparé','Unknown':"Inconnu"},"Etat civil"],
+    f"AGE_EMPLOYED_{pas_age}":["Temps travaillé",{},"Carrière"],
+    f"AGE_{pas_age}":["Age",{},"Age"]
+    
+}
+
 class Presentation(object):
     def __init__(self,main):
         self.main = main
         colors = turbo(256)
         self.cursors = [mb.ColumnDataSource(data=pd.DataFrame(zip([0]*127,np.linspace(0,1,128)[:-1],np.linspace(0,1,128)[1:],[colors[i] for i in range(105,232)]),columns=["y","left","right","colors"])),
                         mb.ColumnDataSource(data=pd.DataFrame(zip([0]*127,np.linspace(0,1,128)[:-1],np.linspace(0,1,128)[1:],[colors[i] for i in range(105,232)]),columns=["y","left","right","colors"])),
-                        mb.ColumnDataSource(data=pd.DataFrame(zip([],[],[],[]),columns=["x","y","marker","colors"]))]
+                        mb.ColumnDataSource(data=pd.DataFrame(zip([],[],[],[]),columns=["x","y","marker","colors"])),
+                        mb.ColumnDataSource(data=pd.DataFrame(zip([],[],[],[]),columns=["x","y","text","colors"]))]
 
-        self.g_cursor = figure(height=30,width=1000,x_range=(0,1), toolbar_location=None)
+        self.g_cursor = figure(height=60,width=1000,x_range=(0,1), toolbar_location=None)
         self.g_cursor.hbar(y="y",left="left",right="right",color="colors",source=self.cursors[0],line_alpha=0,fill_alpha=0.2)
         self.g_cursor.hbar(y="y",left="left",right="right",color="colors",source=self.cursors[1])
-
+        
         self.g_cursor.scatter("x", "y", marker="marker", size=11, color="colors",source=self.cursors[2])
+        self.g_cursor.text("x", "y", text="text",text_align="center", text_font_size="13px",source=self.cursors[3])
 
         self.g_cursor.axis.axis_label=None
         self.g_cursor.axis.visible=False
         self.g_cursor.grid.grid_line_color = None
         
         
-        self.data = {
-            "CODE_GENDER":mb.ColumnDataSource(data=pd.DataFrame(columns=["color","alpha","a_stop","a_start","r_stop","r_start"])),
-            f"CNT_FAM_MEMBERS":mb.ColumnDataSource(data=pd.DataFrame(columns=["color","alpha","a_stop","a_start","r_stop","r_start"])),
-            "NAME_EDUCATION_TYPE":mb.ColumnDataSource(data=pd.DataFrame(columns=["color","alpha","a_stop","a_start","r_stop","r_start"])),
-            "NAME_FAMILY_STATUS":mb.ColumnDataSource(data=pd.DataFrame(columns=["color","alpha","a_stop","a_start","r_stop","r_start"])),
-            f"AGE_{pas_age}":mb.ColumnDataSource(data=pd.DataFrame(columns=["color","alpha","a_stop","a_start","r_stop","r_start"])),
-            f"AGE_EMPLOYED_{pas_age}":mb.ColumnDataSource(data=pd.DataFrame(columns=["color","alpha","a_stop","a_start","r_stop","r_start"])),
-        }
+        self.data = dict([(key,mb.ColumnDataSource(data=pd.DataFrame(columns=["color","alpha","a_stop","a_start","r_stop","r_start"]))) for key in TRAD.keys()])
+        
+#         self.data = {
+#             "CODE_GENDER":mb.ColumnDataSource(data=pd.DataFrame(columns=["color","alpha","a_stop","a_start","r_stop","r_start"])),
+#             f"CNT_FAM_MEMBERS":mb.ColumnDataSource(data=pd.DataFrame(columns=["color","alpha","a_stop","a_start","r_stop","r_start"])),
+#             "NAME_EDUCATION_TYPE":mb.ColumnDataSource(data=pd.DataFrame(columns=["color","alpha","a_stop","a_start","r_stop","r_start"])),
+#             "NAME_FAMILY_STATUS":mb.ColumnDataSource(data=pd.DataFrame(columns=["color","alpha","a_stop","a_start","r_stop","r_start"])),
+#             f"AGE_{pas_age}":mb.ColumnDataSource(data=pd.DataFrame(columns=["color","alpha","a_stop","a_start","r_stop","r_start"])),
+#             f"AGE_EMPLOYED_{pas_age}":mb.ColumnDataSource(data=pd.DataFrame(columns=["color","alpha","a_stop","a_start","r_stop","r_start"])),
+#         }
         
 
         self.graph = figure(#width=600,height=600,
@@ -64,6 +81,8 @@ class Presentation(object):
                 color="color",
                 alpha="alpha",
             )
+        self.graph.text(0, [idx*39+70 for idx in range(len(self.data))], text=[key[2] for key in TRAD.values()],
+           text_color="black",text_font_style="bold", text_align="center", text_font_size="13px")
         
         for data in self.data.values():
             self.graph.annular_wedge(
@@ -78,7 +97,7 @@ class Presentation(object):
         self.graph.grid.grid_line_color = None
 
         self.datas = [mb.ColumnDataSource(data=pd.DataFrame(columns=["good","bad"])) for i in range(0,6)]
-        cols = ["P1_10","CODE_GENDER",f"CNT_FAM_MEMBERS","NAME_EDUCATION_TYPE","NAME_FAMILY_STATUS",f"AGE_{pas_age}",f"AGE_EMPLOYED_{pas_age}"]
+        cols = ["P1_10"]+list(TRAD.keys())#,"CODE_GENDER",f"CNT_FAM_MEMBERS","NAME_EDUCATION_TYPE","NAME_FAMILY_STATUS",f"AGE_{pas_age}",f"AGE_EMPLOYED_{pas_age}"]
         g_data = pd.read_csv(join(dirname(__file__),"cible.csv")).set_index(cols)
         self.graphs = []
         
@@ -90,7 +109,9 @@ class Presentation(object):
             gd["good"] = gd["good"]*100/(gd["good"])
             gd["bad"] = gd["bad"]*100/(-gd["bad"])
             gd.index = gd.index.astype(str)
-            graph = figure(x_range=gd.index.values,height=200,width=500,title=f"{g_data.groupby(level=i+1).sum().index.name}")
+            if TRAD[g_data.groupby(level=i+1).sum().index.name][1]:
+                gd.index = [TRAD[g_data.groupby(level=i+1).sum().index.name][1][val] for val in gd.index]
+            graph = figure(x_range=gd.index.values,height=200,width=500,title=f"{TRAD[g_data.groupby(level=i+1).sum().index.name][0]}")
             graph.vbar(x="index",top="good",width=0.9,source=gd,line_alpha=0.2,fill_alpha=0.2)
             graph.vbar(x="index",top="bad",width=0.9,source=gd,color="crimson",line_alpha=0.2,fill_alpha=0.2)
             
@@ -109,7 +130,7 @@ class Presentation(object):
         self.make_graph()
         
     def make_graph(self):
-        cols = ["P1_10","CODE_GENDER",f"CNT_FAM_MEMBERS","NAME_EDUCATION_TYPE","NAME_FAMILY_STATUS",f"AGE_{pas_age}",f"AGE_EMPLOYED_{pas_age}"]
+        cols = ["P1_10"]+list(TRAD.keys())#,"CODE_GENDER",f"CNT_FAM_MEMBERS","NAME_EDUCATION_TYPE","NAME_FAMILY_STATUS",f"AGE_{pas_age}",f"AGE_EMPLOYED_{pas_age}"]
         g_data = pd.read_csv(join(dirname(__file__),"cible.csv")).set_index(cols)
         
         select = {}
@@ -142,8 +163,8 @@ class Presentation(object):
 
             temp["a_stop"] = temp.counter.cumsum()
             temp["a_start"] = temp.a_stop.shift(1).fillna(0)
-            temp["a_start"] = temp["a_start"]*2.035*np.pi/temp.counter.sum()
-            temp["a_stop"] = temp["a_stop"]*2.035*np.pi/temp.counter.sum()
+            temp["a_start"] = (temp["a_start"]*1.7*np.pi/temp.counter.sum())+np.pi*0.65
+            temp["a_stop"] = (temp["a_stop"]*1.7*np.pi/temp.counter.sum())+np.pi*0.65
 
             temp = temp[temp["alpha"]==1]
         #     temp = temp.groupby(level=0).agg({"angle":"sum","color":"first","alpha":"first"})
@@ -165,6 +186,8 @@ class Presentation(object):
             gd["good"] = gd["good"]*100/(tt_g)
             gd["bad"] = gd["bad"]*100/(tt_b)
             gd.index = gd.index.astype(str)
+            if TRAD[g_data.groupby(level=i).sum().index.name][1]:
+                gd.index = [TRAD[g_data.groupby(level=i).sum().index.name][1][val] for val in gd.index]
             self.datas[i-1].data = gd
         
         
@@ -184,7 +207,7 @@ class Presentation(object):
         b = pd.DataFrame(zip([0]*127,np.linspace(0,1,128)[:-1],np.linspace(0,1,128)[1:],[colors[i] for i in range(105,232)]),columns=["y","left","right","colors"])
         self.cursors[1].data = b[(b.left>t_app.P1.min())&(b.left<t_app.P1.max())]
         
-        if len(t_app)<5000:
+        if len(t_app)<10000:
             id_user = self.main.ctrls["ids"].value
 
             self.main.ctrls["ids"].options=[""]+list(t_app["SK_ID_CURR"].astype(str))
@@ -192,20 +215,24 @@ class Presentation(object):
             self.main.ctrls["ids"].disabled = False
             if id_user:
                 self.cursors[2].data = pd.DataFrame(zip([t_app.P1.mean(),t_app[t_app["SK_ID_CURR"] == int(id_user)]["P1"].iloc[0]],[0.35,-0.35],["inverted_triangle","triangle"],["black","blue"]),columns=["x","y","marker","colors"])
+                self.cursors[3].data = pd.DataFrame(zip([t_app.P1.mean(),t_app[t_app["SK_ID_CURR"] == int(id_user)]["P1"].iloc[0]],[0.35,-0.35],["Moyenne du groupe","Client"],["black","blue"]),columns=["x","y","text","colors"])
             else:
                 self.cursors[2].data = pd.DataFrame(zip([t_app.P1.mean()],[0.35],["inverted_triangle"],["black"]),columns=["x","y","marker","colors"])
+                self.cursors[3].data = pd.DataFrame(zip([t_app.P1.mean()],[0.35],["Moyenne du groupe"],["black"]),columns=["x","y","text","colors"])
         else:
             self.main.ctrls["ids"].disabled = True
             self.main.ctrls["ids"].options=[]
             self.main.ctrls["ids"].value = ""
 
             self.cursors[2].data = pd.DataFrame(zip([t_app.P1.mean()],[0.35],["inverted_triangle"],["black"]),columns=["x","y","marker","colors"])
+            self.cursors[3].data = pd.DataFrame(zip([t_app.P1.mean()],[0.35],["Moyenne du groupe"],["black"]),columns=["x","y","text","colors"])
 
 
     
 class interpretabilite(object):
     def __init__(self,main):
         self.main = main
+        self.id = 0
 
     def render(self):
         self.callback_id = None
@@ -213,6 +240,7 @@ class interpretabilite(object):
         self.data_bad_good = mb.ColumnDataSource(data={"right":[0,0],"y":[0,0],"colors":["darkblue","crimson"]})
         
         bad_good = figure(height=50,x_range=(-1, 1),x_axis_type=None, y_axis_type=None, toolbar_location=None)
+        bad_good.hbar(right=[1,-1],y=[0,0],color=["darkblue","crimson"],alpha=0.2)
         bad_good.hbar(right="right", y="y", height=0.9, color="colors",source=self.data_bad_good)
 
         bad_good.ygrid.grid_line_color = None
@@ -226,55 +254,73 @@ class interpretabilite(object):
         self.inter.hbar(right="right", y="y", height=0.9, color="colors",source=self.data_inter)
 
         self.inter.axis.minor_tick_line_color = None
-        self.inter.outline_line_color = None
-        
-        self.pull()
-        
+        self.inter.outline_line_color = None        
 
-        button = mb.Button(label="Calcul", button_type="success")
-        button.on_click(self.get_explainer)
+        self.button = mb.Button(label="Calcul", button_type="success")
+        self.button.on_click(self.get_explainer)
+        self.button.disabled = True
         
         heading = mb.Div(text="""interprétabilité""",height=80, sizing_mode="stretch_width")
-        return mb.Panel(child=column(heading,row([column([button]),column([bad_good,self.inter])]),self.main.footing, sizing_mode="stretch_width"), title="interpretabilité")
+        return mb.Panel(child=column(heading,row([column([self.button]),column([bad_good,self.inter])]),self.main.footing, sizing_mode="stretch_width"), title="interpretabilité")
     
 
     def pull(self):
-        data = self.main.api.explainer()
+        data = self.main.api.explainer(self.id)
+#         print(self.id,data)
         if data:
-            data = self.main.api.explainer()
+            data = self.main.api.explainer(self.id)
             self.data_bad_good.data = {"right":[-data[0][0],data[0][1]],"y":[0,0],"colors":["crimson","darkblue"]}
             head,values = list(zip(*data[1][::-1]))
-            values = [-val for val in values]
+#             values = [-val for val in values]
             colors = [["darkblue","crimson"][val<0] for val in values]
             y = max([abs(val) for val in values])
             self.inter.x_range = mb.Range1d(-y,y)
-            self.inter.y_range = mb.FactorRange(*head)
+            self.inter.y_range.factors = head
             self.data_inter.data = {"right":values,"y":head,"colors":colors}
             if self.callback_id:
                 self.main.doc.remove_periodic_callback(self.callback_id)
                 self.callback_id = None
+            self.button.label="Calcul"
+            self.button.disabled = False
+            
     
     def get_explainer(self):
+        self.button.label="Calcul in progress"
+        self.button.disabled = True
+        self.id = int(self.main.ctrls["ids"].value)
         self.data_bad_good.data = {"right":[],"y":[],"colors":[]}
-        self.inter.y_range = mb.FactorRange("")
+        self.inter.y_range.factors = []
         self.data_inter.data = {"right":[0],"y":[""],"colors":["#000000"]}
-        self.main.api.explainer_launch(100002)
+        self.main.api.explainer_launch(self.id)
         self.callback_id = self.main.doc.add_periodic_callback(self.pull, 3000)
     
     def update(self,attr, old, new):
-        pass
-    
+        if str(self.id) != self.main.ctrls["ids"].value:
+            self.data_bad_good.data = {"right":[],"y":[],"colors":[]}
+            self.inter.y_range.factors = []
+            self.data_inter.data = {"right":[0],"y":[""],"colors":["#000000"]}
+
+        if self.main.ctrls["ids"].value:
+            self.button.disabled = False
+        else:
+            self.button.disabled = True
+            self.data_bad_good.data = {"right":[],"y":[],"colors":[]}
+            self.inter.y_range.factors = []
+            self.data_inter.data = {"right":[0],"y":[""],"colors":["#000000"]}
+
+
+
 class Dashboard(object):
     def __init__(self,doc):
         self.doc = doc
         self.api = Ocr7Api(debug=False)
         
-        sex = mb.MultiSelect(title="Sex", value=[], options=[("M","Homme"),("F","Femme"),('XNA',"XENO")])
-        study = mb.MultiSelect(title="Etude",value=[],options=[('Lower secondary',"Primaire"),('Secondary / secondary special',"Secondaire"), ('Higher education',"Universitaire"),('Incomplete higher',"Universitaire incomplet"), ('Academic degree',"Post Universitaire")])
-        family_status = mb.MultiSelect(title="Etat civil", value=[], options=[('Single / not married',"Célibataire"), ('Married',"Marié"), ('Civil marriage',"Mariage civil"), ('Widow',"Veuf"), ('Separated','Séparé'), ('Unknown',"Inconnu")])
-        family = mb.RangeSlider(start=1, end=21, value=(1,21), step=1, title="Membres de la famille")
-        age = mb.RangeSlider(start=15, end=90, value=(15,90), step=5, title="Age")
-        age_travail = mb.RangeSlider(start=0, end=50, value=(0,50), step=5, title="Temps travaillé")
+        sex = mb.MultiSelect(title=TRAD["CODE_GENDER"][0], value=[], options=list(TRAD["CODE_GENDER"][1].items()))
+        study = mb.MultiSelect(title=TRAD["NAME_EDUCATION_TYPE"][0],value=[],options=list(TRAD["NAME_EDUCATION_TYPE"][1].items()))
+        family_status = mb.MultiSelect(title=TRAD["NAME_FAMILY_STATUS"][0], value=[], options=list(TRAD["NAME_FAMILY_STATUS"][1].items()))
+        family = mb.RangeSlider(start=1, end=21, value=(1,21), step=1, title=TRAD["CNT_FAM_MEMBERS"][0])
+        age = mb.RangeSlider(start=15, end=90, value=(15,90), step=5, title=TRAD[f"AGE_{pas_age}"][0])
+        age_travail = mb.RangeSlider(start=0, end=50, value=(0,50), step=5, title=TRAD[f"AGE_EMPLOYED_{pas_age}"][0])
         
         ids = mb.Select(title="Id Client:", value="", options=[""],disabled=True)
         

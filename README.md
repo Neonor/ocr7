@@ -32,11 +32,11 @@ l'objectif est d'obtenir un score pour la capacité du client à rembourser sont
     
 
 ### Structure des données
-En partant des données de base, on les complète à partir des autres fichier en partant de calcul simple:
+En partant des données de base, on les complète à partir des autres fichiers en partant de calcul simple:
 * le nombre de crédit contracté
-* le cummule des crédits contractés
-* la moyenne et les cummules des solds en fin de mois
-* les retards de payment
+* le cumule des crédits contractés
+* la moyenne et les cumules des soldes en fin de mois
+* les retards de payement
 
 
 ### Fonction de cout
