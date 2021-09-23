@@ -85,3 +85,23 @@ python dashboard.py
 ```
 
 Sur un serveur linux utilisant systemctl pour les services, les 2 process peuvent être lancer en tant que service
+
+### Dépendances
+
+* aiofiles : 0.7.0
+* bokeh : 2.3.2
+* fastapi : 0.66.0
+* ipywidgets : 7.6.3
+* lightgbm : 3.2.1
+* numpy : 1.19.5
+* optuna : 2.8.0
+* pandas : 1.3.0
+* pytables : 3.6.1
+* python : 3.8.10
+* scikit-learn : 0.24.2
+* scipy : 1.7.0
+* uvicorn : 0.14.0
+
+```
+conda install -c conda-forge aiofiles=0.7.0 bokeh=2.3.2 fastapi=0.66.0 ipywidgets=7.6.3 lightgbm=3.2.1 numpy=1.19.5 optuna=2.8.0 pandas=1.3.0 pytables=3.6.1 python=3.8.10 scikit-learn=0.24.2 scipy=1.7.0 uvicorn=0.14.0
+```
